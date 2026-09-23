@@ -18,6 +18,21 @@ Data sources are configured at the top of the `<script>` block in `index.html`:
 As exchanges are migrated to the new portal, move their shortname from the
 old-portal `only:` list to the new-portal one.
 
+## MANRS participation
+
+Networks that participate in [MANRS](https://www.manrs.org/) are marked with a
+badge next to their name, and the count is summarised above the tables. This is
+what the MANRS IXP Programme calls Action 2-3 ("Promote").
+
+The ASN list comes from `https://api.manrs.org/asns`, but that endpoint sends no
+`Access-Control-Allow-Origin` header, so the page cannot fetch it from the
+browser. `.github/workflows/update-manrs.yml` mirrors it into `manrs.json` once a
+day (and on demand via *Run workflow*), committing only when the list actually
+changes. The page then loads `manrs.json` same-origin.
+
+If `manrs.json` is missing or fails to load the tables still render — the badges
+and the summary line are simply omitted.
+
 ## Embed
 
 ```html
