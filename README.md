@@ -37,6 +37,33 @@ and the summary line are simply omitted.
 
 ```html
 <iframe src="https://norwegianinternetexchange.github.io/member-list/"
-        style="width:100%;height:900px;border:0"
+        style="width:100%;height:5600px;border:0"
         title="Networks connected to NIX" loading="lazy"></iframe>
 ```
+
+The height is deliberately large enough for the whole list, so the iframe never
+gets its own scrollbar inside the page.
+
+nix.no runs Vortex, which strips scripts from page content, so the usual
+`postMessage` auto-resize (child measures itself, parent resizes the iframe) is
+not available — the height has to be a number, and that number has to be a
+safe overestimate.
+
+That constraint is also why narrow screens hide columns rather than stacking
+each row into a card: cards would roughly triple the height on a phone, and one
+fixed height cannot serve both. Every network stays on one line at every width,
+so the rendered height is close to viewport-independent:
+
+| Viewport width | Rendered height |
+| --- | --- |
+| 1200 px | 5245 px |
+| 768 px | 5245 px |
+| 414 px | 5039 px |
+| 360 px | 5149 px |
+
+Columns shown: below 880 px the IPv6 column is dropped, below 620 px IPv4 and
+Speed go too and the speed is appended after the network name instead.
+
+Each additional network adds about 34 px. Re-measure and bump the embed height
+when the list grows past roughly 125 networks (`document.documentElement
+.scrollHeight` in the browser console on the Pages URL).

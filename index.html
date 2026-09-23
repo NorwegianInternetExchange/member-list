@@ -35,7 +35,7 @@
     border-bottom: 2px solid var(--accent);
   }
   h2 .count { font-size: 13px; color: var(--muted); font-weight: normal; }
-  table { border-collapse: collapse; width: 100%; margin-bottom: 8px; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 8px; table-layout: fixed; }
   th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); }
   th {
     background: var(--head-bg); font-size: 12px; text-transform: uppercase;
@@ -43,6 +43,14 @@
   }
   tbody tr:hover { background: var(--row-hover); }
   td.asn, td.ip, td.speed { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.name { overflow-wrap: anywhere; }
+  .speed-inline { display: none; color: var(--muted); font-size: 12px; white-space: nowrap; }
+
+  /* Column widths, so the fixed layout does not hand the IP columns more room
+     than they need. */
+  .c-asn { width: 8.5em; } .c-ip4 { width: 10em; } .c-ip6 { width: 15em; }
+  .c-speed { width: 5em; }
+
   td.asn a { color: var(--link); text-decoration: none; }
   td.asn a:hover { text-decoration: underline; }
   .ip6 { color: var(--muted); }
@@ -57,6 +65,23 @@
   #status { padding: 14px; color: var(--muted); }
   #status.error { color: var(--accent-dark); }
   .hidden { display: none; }
+
+  /* Narrow screens drop columns instead of stacking each row into a card. Cards
+     would triple the page height, and the iframe on nix.no has a fixed height it
+     cannot adapt (Vortex strips scripts from page content, so the usual
+     postMessage auto-resize is not available). Keeping every network on one line
+     at every width keeps the rendered height roughly viewport-independent, which
+     is what lets one fixed height fit both a desktop and a phone. */
+  @media (max-width: 880px) {
+    .c-ip6 { display: none; }
+    .c-asn { width: 7.5em; }
+  }
+  @media (max-width: 620px) {
+    .c-ip4, .c-speed { display: none; }
+    .speed-inline { display: inline; }
+    th, td { padding: 7px 6px; }
+    .c-asn { width: 6.5em; }
+  }
 </style>
 </head>
 <body>
@@ -197,18 +222,22 @@ function render(rowsByIx, manrs) {
     sec.innerHTML =
       '<h2>' + esc(sn) + ' <span class="count">(' + rows.length + ' networks)</span></h2>' +
       '<table><thead><tr>' +
-        '<th data-k="asnum">AS</th><th data-k="name">Name</th>' +
-        '<th data-k="ipv4">IPv4</th><th data-k="ipv6">IPv6</th>' +
-        '<th data-k="speed">Speed</th>' +
+        '<th class="c-asn" data-k="asnum">AS</th><th data-k="name">Name</th>' +
+        '<th class="c-ip4" data-k="ipv4">IPv4</th><th class="c-ip6" data-k="ipv6">IPv6</th>' +
+        '<th class="c-speed" data-k="speed">Speed</th>' +
       '</tr></thead><tbody>' +
       rows.map(r =>
         '<tr data-s="' + esc((r.asnum + " " + r.name).toLowerCase()) + '">' +
-          '<td class="asn"><a href="https://www.peeringdb.com/asn/' + encodeURIComponent(r.asnum) +
+          '<td class="asn c-asn"><a href="https://www.peeringdb.com/asn/' + encodeURIComponent(r.asnum) +
             '" target="_blank" rel="noopener">AS' + esc(r.asnum) + '</a></td>' +
-          '<td>' + esc(r.name) + (manrs.has(Number(r.asnum)) ? MANRS_BADGE : "") + '</td>' +
-          '<td class="ip">' + r.ipv4.map(esc).join("<br>") + '</td>' +
-          '<td class="ip ip6">' + r.ipv6.map(esc).join("<br>") + '</td>' +
-          '<td class="speed">' + esc(speedLabel(r.speed)) + '</td>' +
+          '<td class="name">' + esc(r.name) + (manrs.has(Number(r.asnum)) ? MANRS_BADGE : "") +
+            // Shown only where the Speed column is hidden, so a phone still gets
+            // the port speed without costing an extra line.
+            (r.speed ? ' <span class="speed-inline">' + esc(speedLabel(r.speed)) + '</span>' : "") +
+          '</td>' +
+          '<td class="ip c-ip4">' + r.ipv4.map(esc).join("<br>") + '</td>' +
+          '<td class="ip ip6 c-ip6">' + r.ipv6.map(esc).join("<br>") + '</td>' +
+          '<td class="speed c-speed">' + esc(speedLabel(r.speed)) + '</td>' +
         '</tr>'
       ).join("") +
       '</tbody></table>';
