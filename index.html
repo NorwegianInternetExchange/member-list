@@ -46,6 +46,14 @@
   td.asn a { color: var(--link); text-decoration: none; }
   td.asn a:hover { text-decoration: underline; }
   .ip6 { color: var(--muted); }
+  .manrs {
+    display: inline-block; margin-left: 7px; padding: 0 5px;
+    border: 1px solid var(--accent); border-radius: 3px;
+    font-size: 11px; font-weight: bold; letter-spacing: .04em;
+    color: var(--accent); text-decoration: none; white-space: nowrap;
+  }
+  .manrs:hover { background: var(--accent); color: #fff; }
+  #legend .manrs { margin-left: 0; margin-right: 3px; }
   #status { padding: 14px; color: var(--muted); }
   #status.error { color: var(--accent-dark); }
   .hidden { display: none; }
@@ -56,6 +64,7 @@
 <div id="status">Loading member list…</div>
 
 <div class="meta hidden" id="meta"></div>
+<div class="meta hidden" id="legend"></div>
 <div class="controls hidden" id="controls">
   <input type="search" id="filter" placeholder="Filter by AS number or name…" autocomplete="off">
 </div>
@@ -70,6 +79,15 @@ const EXPORTS = [
   { url: "https://portal.nix.no/api/v4/member-export/ixf/1.0",     only: ["NIX1", "TIX"] },
   { url: "https://portal-old.nix.no/api/v4/member-export/ixf/1.0", only: ["NIX2", "BIX", "SIX", "TRDIX"] }
 ];
+
+// MANRS participants, mirrored into this repo daily by
+// .github/workflows/update-manrs.yml. api.manrs.org sends no CORS header, so the
+// browser cannot fetch it directly — it has to be served same-origin.
+const MANRS_URL = "manrs.json";
+
+const MANRS_BADGE =
+  '<a class="manrs" href="https://www.manrs.org/" target="_blank" rel="noopener"' +
+  ' title="This network is a MANRS participant">MANRS</a>';
 
 // Display order of the exchange sections (unlisted ones are appended alphabetically).
 const ORDER = ["NIX1", "NIX2", "BIX", "TRDIX", "SIX", "TIX"];
@@ -133,17 +151,39 @@ async function load() {
     return;
   }
 
+  // Never let a MANRS hiccup take the member list down with it.
+  let manrs = new Set();
+  try {
+    const r = await fetch(MANRS_URL, { cache: "no-store" });
+    if (r.ok) manrs = new Set(((await r.json()).asns || []).map(Number));
+  } catch (e) {
+    console.error("Failed to load MANRS participant list", e);
+  }
+
   $("status").classList.add("hidden");
   $("meta").classList.remove("hidden");
   $("controls").classList.remove("hidden");
   $("meta").textContent = "Source: NIX IX-F Member Export" +
     (newest ? " · updated " + new Date(newest).toISOString().replace("T", " ").replace(/\..*/, " UTC") : "");
 
-  render(rowsByIx);
+  if (manrs.size) {
+    const all = new Set();
+    for (const bucket of Object.values(rowsByIx)) {
+      for (const asnum of Object.keys(bucket)) all.add(Number(asnum));
+    }
+    const participants = [...all].filter(a => manrs.has(a)).length;
+    $("legend").classList.remove("hidden");
+    $("legend").innerHTML =
+      MANRS_BADGE + " marks the " + participants + " of " + all.size +
+      ' networks that participate in <a href="https://www.manrs.org/" target="_blank"' +
+      ' rel="noopener">MANRS</a>, a commitment to routing security.';
+  }
+
+  render(rowsByIx, manrs);
   $("filter").addEventListener("input", () => applyFilter($("filter").value.trim().toLowerCase()));
 }
 
-function render(rowsByIx) {
+function render(rowsByIx, manrs) {
   const out = $("out");
   out.innerHTML = "";
   const names = Object.keys(rowsByIx).sort((a, b) => {
@@ -165,7 +205,7 @@ function render(rowsByIx) {
         '<tr data-s="' + esc((r.asnum + " " + r.name).toLowerCase()) + '">' +
           '<td class="asn"><a href="https://www.peeringdb.com/asn/' + encodeURIComponent(r.asnum) +
             '" target="_blank" rel="noopener">AS' + esc(r.asnum) + '</a></td>' +
-          '<td>' + esc(r.name) + '</td>' +
+          '<td>' + esc(r.name) + (manrs.has(Number(r.asnum)) ? MANRS_BADGE : "") + '</td>' +
           '<td class="ip">' + r.ipv4.map(esc).join("<br>") + '</td>' +
           '<td class="ip ip6">' + r.ipv6.map(esc).join("<br>") + '</td>' +
           '<td class="speed">' + esc(speedLabel(r.speed)) + '</td>' +
