@@ -128,6 +128,24 @@ function speedLabel(mbps) {
   return mbps >= 1000 ? (mbps / 1000) + "G" : mbps + "M";
 }
 
+// The IX-F export timestamp is UTC. Show it in Norwegian time instead, with the
+// CET/CEST label so it is unambiguous - and pinned to Europe/Oslo rather than
+// the reader's own zone, so everyone sees the same figure NIX operations does.
+function osloTime(ms) {
+  try {
+    const p = {};
+    for (const part of new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Oslo",
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", hour12: false,
+      timeZoneName: "short"
+    }).formatToParts(new Date(ms))) p[part.type] = part.value;
+    return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute} ${p.timeZoneName}`;
+  } catch (e) {
+    return new Date(ms).toISOString().replace("T", " ").replace(/:\d\d\..*/, " UTC");
+  }
+}
+
 async function load() {
   let rowsByIx = {};   // shortname -> [rows]
   let newest = 0;
@@ -189,7 +207,7 @@ async function load() {
   $("meta").classList.remove("hidden");
   $("controls").classList.remove("hidden");
   $("meta").textContent = "Source: NIX IX-F Member Export" +
-    (newest ? " · updated " + new Date(newest).toISOString().replace("T", " ").replace(/\..*/, " UTC") : "");
+    (newest ? " · updated " + osloTime(newest) : "");
 
   if (manrs.size) {
     const all = new Set();
